@@ -1,0 +1,105 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Utilities &#8212; CaDRReS 0.1 documentation</title>
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">CaDRReS 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="module-cadrres.utility">
+<span id="utilities"></span><h1>Utilities<a class="headerlink" href="#module-cadrres.utility" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="cadrres.utility.cal_m">
+<code class="descclassname">cadrres.utility.</code><code class="descname">cal_m</code><span class="sig-paren">(</span><em>x</em>, <em>a_list</em>, <em>b_list</em>, <em>p_list</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cadrres/utility.html#cal_m"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cadrres.utility.cal_m" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate m = the slope of the tangent line at the current (x, y)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="cadrres.utility.cal_y">
+<code class="descclassname">cadrres.utility.</code><code class="descname">cal_y</code><span class="sig-paren">(</span><em>x</em>, <em>a_list</em>, <em>b_list</em>, <em>p_list</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cadrres/utility.html#cal_y"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cadrres.utility.cal_y" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate y (% cell death)</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="cadrres.utility.calculate_pathway_activity_gsea">
+<code class="descclassname">cadrres.utility.</code><code class="descname">calculate_pathway_activity_gsea</code><span class="sig-paren">(</span><em>log2_median_fc_exp_df</em>, <em>pathway_db_name='Biocarta'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cadrres/utility.html#calculate_pathway_activity_gsea"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cadrres.utility.calculate_pathway_activity_gsea" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate pathway activity</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="cadrres.utility.combine_curves">
+<code class="descclassname">cadrres.utility.</code><code class="descname">combine_curves</code><span class="sig-paren">(</span><em>cl_d_df</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/cadrres/utility.html#combine_curves"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#cadrres.utility.combine_curves" title="Permalink to this definition">¶</a></dt>
+<dd><p>cl_d_df has columns = [frequency, ic50, slope]
+(See combine_curve_ic50.ipynb)
+Output: combined ic50 value</p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">CaDRReS 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Nok.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.0.0+.
+    </div>
+  </body>
+</html>

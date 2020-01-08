@@ -1,0 +1,23 @@
+Script types
+============
+A: data preprocessing
+B: data statistics
+C: analysis
+D: model
+E: external scripts
+F: create figure
+sandbox: temporary script for checking a specific issue
+zzz: old script (no longer used)
+
+file directory and script
+=========================
+'data' -> A -> 'preprocessed_data'
+'preprocessed_data' -> B|C|D -> 'result'|'figure_data'
+'figure_data' -> F -> 'figure'
+
+script file name
+================ 
+For example, A01[-1]_task
+- A = script type
+- 01 = task
+- -1 = order of subtask (expandable)

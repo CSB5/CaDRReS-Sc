@@ -1,0 +1,695 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>cadrres.model &#8212; CaDRReS 0.1 documentation</title>
+    <link rel="stylesheet" href="../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CaDRReS 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for cadrres.model</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">.. module:: prediction</span>
+<span class="sd">    :synopsis Predicting drug response using kernel features</span>
+
+<span class="sd">.. moduleauthor:: Nok &lt;suphavilaic@gis.a-star.edu.sg&gt;</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">pickle</span><span class="o">,</span> <span class="nn">time</span>
+
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">from</span> <span class="nn">tensorflow.python.framework</span> <span class="k">import</span> <span class="n">ops</span>
+
+<div class="viewcode-block" id="load_model"><a class="viewcode-back" href="../../model.html#cadrres.model.load_model">[docs]</a><span class="k">def</span> <span class="nf">load_model</span><span class="p">(</span><span class="n">model_fname</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Load a pre-trained model</span>
+
+<span class="sd">    :param model_name: gdsc, gdsc-no-bias, ccle, gdsc-cyto, gdsc-target, gdsc-no-bias-cyto, gdsc-no-bias-target</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">model_fname</span><span class="p">,</span> <span class="s1">&#39;br&#39;</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="get_model_param"><a class="viewcode-back" href="../../model.html#cadrres.model.get_model_param">[docs]</a><span class="k">def</span> <span class="nf">get_model_param</span><span class="p">(</span><span class="n">pg_space</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get model paramters</span>
+
+<span class="sd">    :param model_param_fname: Name of trained model (hdf5 file)</span>
+<span class="sd">    :type model_param_fname: string</span>
+<span class="sd">    :returns:  Dict of model parameters</span>
+
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="get_training_info"><a class="viewcode-back" href="../../model.html#cadrres.model.get_training_info">[docs]</a><span class="k">def</span> <span class="nf">get_training_info</span><span class="p">(</span><span class="n">pg_space</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Get training information</span>
+
+<span class="sd">    :param model_param_dict: Dict of model parameters</span>
+<span class="sd">    :type model_param_dict: dict</span>
+<span class="sd">    :returns:  Dataframe of model training info (drug confidence, etc.)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span></div>
+
+<span class="c1"># def predict_from_model(model_dict, test_kernel_df, drug_list, model_spec_name=&#39;cadrres-wo-sample-bias&#39;):</span>
+<span class="k">def</span> <span class="nf">predict_from_model</span><span class="p">(</span><span class="n">model_dict</span><span class="p">,</span> <span class="n">test_kernel_df</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="o">=</span><span class="s1">&#39;cadrres-wo-sample-bias&#39;</span><span class="p">):</span>
+
+    <span class="c1"># TODO: add other model types and update the scrip accordingly</span>
+    <span class="k">if</span> <span class="n">model_spec_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;cadrres-wo-sample-bias&#39;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">sample_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">test_kernel_df</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+    
+    <span class="c1"># drug_list = drug_list</span>
+    <span class="c1"># Read drug list from model_dict</span>
+    <span class="n">drug_list</span> <span class="o">=</span> <span class="n">model_dict</span><span class="p">[</span><span class="s1">&#39;drug_list&#39;</span><span class="p">]</span>
+    <span class="n">kernel_sample_list</span> <span class="o">=</span> <span class="n">model_dict</span><span class="p">[</span><span class="s1">&#39;kernel_sample_list&#39;</span><span class="p">]</span>
+
+    <span class="c1">##### Prepare input #####</span>
+    <span class="c1"># X = np.matrix(test_kernel_df)</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matrix</span><span class="p">(</span><span class="n">test_kernel_df</span><span class="p">[</span><span class="n">kernel_sample_list</span><span class="p">])</span>
+
+    <span class="c1">##### Make a prediction #####</span>
+    <span class="n">b_q</span> <span class="o">=</span> <span class="n">model_dict</span><span class="p">[</span><span class="s1">&#39;b_Q&#39;</span><span class="p">]</span>
+    <span class="n">WP</span> <span class="o">=</span> <span class="n">model_dict</span><span class="p">[</span><span class="s1">&#39;W_P&#39;</span><span class="p">]</span>
+    <span class="n">WQ</span> <span class="o">=</span> <span class="n">model_dict</span><span class="p">[</span><span class="s1">&#39;W_Q&#39;</span><span class="p">]</span>
+
+    <span class="n">n_dim</span> <span class="o">=</span> <span class="n">WP</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">pred</span> <span class="o">=</span> <span class="n">b_q</span><span class="o">.</span><span class="n">T</span> <span class="o">+</span> <span class="p">(</span><span class="n">X</span> <span class="o">*</span> <span class="n">WP</span><span class="p">)</span> <span class="o">*</span> <span class="n">WQ</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">pred</span> <span class="o">=</span> <span class="n">pred</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span> <span class="c1"># convert sensitivity score to IC50</span>
+    <span class="n">pred_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">sample_list</span><span class="p">,</span> <span class="n">drug_list</span><span class="p">)</span>
+
+    <span class="c1">###### Projections #####</span>
+    <span class="n">P_test</span> <span class="o">=</span> <span class="n">X</span> <span class="o">*</span> <span class="n">WP</span>
+    <span class="n">P_test_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">P_test</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sample_list</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">n_dim</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">pred_df</span><span class="p">,</span> <span class="n">P_test_df</span>
+
+<span class="k">def</span> <span class="nf">calculate_baseline_prediction</span><span class="p">(</span><span class="n">obs_resp_df</span><span class="p">,</span> <span class="n">train_sample_list</span><span class="p">,</span> <span class="n">drug_list</span><span class="p">,</span> <span class="n">test_sample_list</span><span class="p">):</span>
+    <span class="n">repeated_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">([</span><span class="n">obs_resp_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">train_sample_list</span><span class="p">,</span> <span class="n">drug_list</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_sample_list</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">repeated_val</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">test_sample_list</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">drug_list</span><span class="p">)</span>
+
+
+<span class="c1">##########################</span>
+<span class="c1">##### Model training #####</span>
+<span class="c1">##########################</span>
+
+<span class="c1">##### Utility functions #####</span>
+
+<div class="viewcode-block" id="create_placeholders"><a class="viewcode-back" href="../../model.html#cadrres.model.create_placeholders">[docs]</a><span class="k">def</span> <span class="nf">create_placeholders</span><span class="p">(</span><span class="n">n_x_features</span><span class="p">,</span> <span class="n">n_y_features</span><span class="p">,</span> <span class="n">sample_weight</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    sample_logistic_weight_df (sample, drug) contains x0 for each logistic curve of sample weight.</span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="n">X</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">placeholder</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_x_features</span><span class="p">])</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">placeholder</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_y_features</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">sample_weight</span><span class="p">:</span>
+        <span class="c1"># O = tf.placeholder(name=&quot;weights_logistic_x0&quot;, shape=weights_logistic_x0_df.shape, dtype=tf.float32)</span>
+        <span class="n">O</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">placeholder</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">])</span>
+        <span class="n">D</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">placeholder</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">O</span><span class="p">,</span> <span class="n">D</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">X</span><span class="p">,</span> <span class="n">Y</span></div>
+
+<span class="k">def</span> <span class="nf">initialize_parameters</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">n_drugs</span><span class="p">,</span> <span class="n">n_x_features</span><span class="p">,</span> <span class="n">n_y_features</span><span class="p">,</span> <span class="n">n_dimensions</span><span class="p">,</span> <span class="n">seed</span><span class="p">):</span>
+    <span class="n">parameters</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;W_P&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">truncated_normal</span><span class="p">([</span><span class="n">n_x_features</span><span class="p">,</span> <span class="n">n_dimensions</span><span class="p">],</span> <span class="n">stddev</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">mean</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;W_P&quot;</span><span class="p">)</span>
+    <span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;W_Q&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">truncated_normal</span><span class="p">([</span><span class="n">n_y_features</span><span class="p">,</span> <span class="n">n_dimensions</span><span class="p">],</span> <span class="n">stddev</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">mean</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;W_Q&quot;</span><span class="p">)</span>
+    <span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;b_P&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">get_variable</span><span class="p">(</span><span class="s1">&#39;b_P&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">n_samples</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">initializer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">zeros_initializer</span><span class="p">())</span>
+    <span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;b_Q&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">get_variable</span><span class="p">(</span><span class="s1">&#39;b_Q&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">n_drugs</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">initializer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">zeros_initializer</span><span class="p">())</span>
+
+    <span class="k">return</span> <span class="n">parameters</span>
+
+<span class="k">def</span> <span class="nf">inward_propagation</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">,</span> <span class="n">n_drugs</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="p">):</span>
+    <span class="n">W_P</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;W_P&#39;</span><span class="p">]</span>
+    <span class="n">W_Q</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;W_Q&#39;</span><span class="p">]</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">W_P</span><span class="p">)</span>
+    <span class="n">Q</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">W_Q</span><span class="p">)</span>
+
+    <span class="n">b_P_mat</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;b_P&#39;</span><span class="p">],</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_drugs</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_drugs</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">))</span>
+    <span class="n">b_Q_mat</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;b_Q&#39;</span><span class="p">],</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_samples</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)))</span>
+
+    <span class="k">if</span> <span class="n">model_spec_name</span> <span class="o">==</span> <span class="s1">&#39;cadrres&#39;</span><span class="p">:</span>
+        <span class="n">S</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">b_Q_mat</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">b_P_mat</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">Q</span><span class="p">))))</span>
+    <span class="k">elif</span> <span class="n">model_spec_name</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;cadrres-wo-sample-bias&#39;</span><span class="p">,</span> <span class="s1">&#39;cadrres-wo-sample-bias-weight&#39;</span><span class="p">]:</span>
+        <span class="n">S</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">b_Q_mat</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">Q</span><span class="p">)))</span>
+    <span class="c1"># elif model_spec_name == &#39;cadrres-wo-bias&#39;:</span>
+    <span class="c1">#     S = tf.matmul(P, tf.transpose(Q))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">S</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">return</span> <span class="n">S</span>
+
+<span class="k">def</span> <span class="nf">get_laten_vectors</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">parameters</span><span class="p">):</span>
+    <span class="n">W_P</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;W_P&#39;</span><span class="p">]</span>
+    <span class="n">W_Q</span> <span class="o">=</span> <span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;W_Q&#39;</span><span class="p">]</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">W_P</span><span class="p">)</span>
+    <span class="n">Q</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">W_Q</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">P</span><span class="p">,</span> <span class="n">Q</span>
+
+<span class="c1">##### Predicting function #####</span>
+
+<span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">S_obs</span><span class="p">,</span> <span class="n">parameters_trained</span><span class="p">,</span> <span class="n">X_sample_list</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="p">,</span> <span class="n">is_train</span><span class="p">):</span>
+    <span class="n">n_samples</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">X_sample_list</span><span class="p">)</span>
+    <span class="n">n_drugs</span> <span class="o">=</span> <span class="n">Y</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    
+    <span class="n">W_P</span> <span class="o">=</span> <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;W_P&#39;</span><span class="p">]</span>
+    <span class="n">W_Q</span> <span class="o">=</span> <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;W_Q&#39;</span><span class="p">]</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">W_P</span><span class="p">)</span>
+    <span class="n">Q</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">W_Q</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">model_spec_name</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;cadrres-wo-sample-bias&#39;</span><span class="p">,</span> <span class="s1">&#39;cadrres-wo-sample-bias-weight&#39;</span><span class="p">]:</span>
+    
+        <span class="n">b_Q</span> <span class="o">=</span> <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;b_Q&#39;</span><span class="p">]</span>
+
+        <span class="n">b_Q_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">b_Q</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_samples</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)))</span>
+        <span class="n">S</span> <span class="o">=</span> <span class="n">b_Q_mat</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">Q</span><span class="p">))</span>
+
+        <span class="n">cost</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">S</span> <span class="o">-</span> <span class="n">S_obs</span><span class="p">))</span><span class="o">/</span><span class="mf">2.0</span>
+
+    <span class="k">elif</span> <span class="n">model_spec_name</span> <span class="o">==</span> <span class="s1">&#39;cadrres&#39;</span><span class="p">:</span>
+ 
+        <span class="n">b_Q</span> <span class="o">=</span> <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;b_Q&#39;</span><span class="p">]</span>
+        <span class="n">b_P</span> <span class="o">=</span> <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;b_P&#39;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">is_train</span><span class="p">:</span>
+
+            <span class="n">b_P_est</span> <span class="o">=</span> <span class="n">b_P</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># estimate sample bias</span>
+            <span class="n">b_P_est</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">b_P</span><span class="p">)</span> 
+            <span class="c1"># copy bias for seen samples</span>
+            <span class="k">for</span> <span class="n">u</span><span class="p">,</span> <span class="n">s_name</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">X_sample_list</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">s_name</span> <span class="ow">in</span> <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;sample_list_train&#39;</span><span class="p">]:</span>
+                    <span class="n">s_idx</span> <span class="o">=</span> <span class="n">sample_list_train</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">s_name</span><span class="p">)</span>
+                    <span class="n">b_P_est</span><span class="p">[</span><span class="n">u</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">b_P</span><span class="p">[</span><span class="n">s_idx</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">b_P_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">b_P_est</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_drugs</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_drugs</span><span class="p">))</span>
+        <span class="n">b_Q_mat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">b_Q</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_samples</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">)))</span>
+        <span class="n">S</span> <span class="o">=</span> <span class="n">b_Q_mat</span> <span class="o">+</span> <span class="n">b_P_mat</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">Q</span><span class="p">))</span>        
+
+        <span class="n">cost</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">S</span> <span class="o">-</span> <span class="n">S_obs</span><span class="p">))</span><span class="o">/</span><span class="mf">2.0</span>
+
+    <span class="k">return</span> <span class="n">S</span><span class="p">,</span> <span class="n">cost</span>
+
+<span class="c1"># TODO: create additional predict functions for other model types and for bias estimation (see CaDRReS2_tf_matrix_factorization_wo_bp.py)</span>
+
+<span class="c1">##### Training function #####</span>
+
+<span class="k">def</span> <span class="nf">train_model</span><span class="p">(</span><span class="n">train_resp_df</span><span class="p">,</span> <span class="n">train_feature_df</span><span class="p">,</span> <span class="n">test_resp_df</span><span class="p">,</span> <span class="n">test_feature_df</span><span class="p">,</span> <span class="n">n_dim</span><span class="p">,</span> <span class="n">lda</span><span class="p">,</span> <span class="n">max_iter</span><span class="p">,</span> <span class="n">l_rate</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="o">=</span><span class="s1">&#39;cadrres-wo-sample-bias&#39;</span><span class="p">,</span> <span class="n">flip_score</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">save_interval</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="s1">&#39;output&#39;</span><span class="p">):</span>
+
+    <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Initializing the model ...&#39;</span><span class="p">)</span>
+
+    <span class="c1">##### Reset TensorFlow graph #####</span>
+    <span class="n">ops</span><span class="o">.</span><span class="n">reset_default_graph</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_dir</span><span class="p">):</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+
+    <span class="c1"># TODO: save the model configuration</span>
+
+    <span class="c1">################################</span>
+    <span class="c1">##### Setting up the model #####</span>
+    <span class="c1">################################</span>
+
+    <span class="c1"># TODO: add other model types and update the scrip accordingly</span>
+    <span class="k">if</span> <span class="n">model_spec_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;cadrres&#39;</span><span class="p">,</span> <span class="s1">&#39;cadrres-wo-sample-bias&#39;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">n_drugs</span> <span class="o">=</span> <span class="n">train_resp_df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">drug_list</span> <span class="o">=</span> <span class="n">train_resp_df</span><span class="o">.</span><span class="n">columns</span>
+
+    <span class="n">n_samples</span> <span class="o">=</span> <span class="n">train_resp_df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">sample_list_train</span> <span class="o">=</span> <span class="n">train_resp_df</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">sample_list_test</span> <span class="o">=</span> <span class="n">test_resp_df</span><span class="o">.</span><span class="n">index</span>
+
+    <span class="n">n_x_features</span> <span class="o">=</span> <span class="n">train_feature_df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">n_y_features</span> <span class="o">=</span> <span class="n">n_drugs</span>
+
+    <span class="n">X_train_dat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">train_feature_df</span><span class="p">)</span>
+    <span class="n">Y_train_dat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">n_drugs</span><span class="p">)</span>
+
+    <span class="n">X_test_dat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">test_feature_df</span><span class="p">)</span>
+    <span class="n">Y_test_dat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">n_drugs</span><span class="p">)</span>
+
+    <span class="c1">##### Convert log(IC50) to sensitivity scores #####</span>
+    <span class="k">if</span> <span class="n">flip_score</span><span class="p">:</span>
+        <span class="n">S_train_obs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">train_resp_df</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">S_test_obs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">test_resp_df</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">S_train_obs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">train_resp_df</span><span class="p">)</span>
+        <span class="n">S_test_obs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">test_resp_df</span><span class="p">)</span>
+
+    <span class="c1">##### Initialize placeholders and parameters #####</span>
+    <span class="n">X_train</span><span class="p">,</span> <span class="n">Y_train</span> <span class="o">=</span> <span class="n">create_placeholders</span><span class="p">(</span><span class="n">n_x_features</span><span class="p">,</span> <span class="n">n_y_features</span><span class="p">)</span>
+    <span class="n">parameters</span> <span class="o">=</span> <span class="n">initialize_parameters</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">n_drugs</span><span class="p">,</span> <span class="n">n_x_features</span><span class="p">,</span> <span class="n">n_y_features</span><span class="p">,</span> <span class="n">n_dim</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
+
+    <span class="c1">##### Extract only prediction of only observed drug response #####</span>
+    <span class="n">train_known_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">S_train_obs</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)))[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">n_train_known</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_known_idx</span><span class="p">)</span>
+    <span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Train:&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_known_idx</span><span class="p">),</span> <span class="s2">&quot;out of&quot;</span><span class="p">,</span> <span class="n">n_drugs</span> <span class="o">*</span> <span class="n">n_samples</span><span class="p">)</span>
+
+    <span class="n">S_train_pred</span> <span class="o">=</span> <span class="n">inward_propagation</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">,</span> <span class="n">n_drugs</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="p">)</span>
+    <span class="n">S_train_pred_resp</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">S_train_pred</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="n">train_known_idx</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;S_train_pred_resp&quot;</span><span class="p">)</span>
+    <span class="n">S_train_obs_resp</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">S_train_obs</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)[</span><span class="n">train_known_idx</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;S_train_obs_resp&quot;</span><span class="p">)</span>
+
+    <span class="c1">#### Calculate the difference between the predicted sensitivity and the actual #####</span>
+    <span class="n">diff_op_train</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">S_train_pred_resp</span><span class="p">,</span> <span class="n">S_train_obs_resp</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;raw_training_error&quot;</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="s2">&quot;train_cost&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">scope</span><span class="p">:</span>
+        <span class="n">base_cost</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">diff_op_train</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;squared_diff_train&quot;</span><span class="p">),</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;sse_train&quot;</span><span class="p">)</span>
+        <span class="n">regularizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;W_P&#39;</span><span class="p">])),</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;W_Q&#39;</span><span class="p">]))),</span> <span class="n">lda</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;regularize&quot;</span><span class="p">)</span>
+        <span class="n">cost_train</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">math</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">base_cost</span><span class="p">,</span> <span class="n">regularizer</span><span class="p">),</span> <span class="n">n_train_known</span> <span class="o">*</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;avg_error_train&quot;</span><span class="p">)</span>
+    <span class="c1"># TODO: add different kinds of regulalization (the current version uses ridge; see CaDRReS2_tf_matrix_factorization_wo_bp_lasso.py)</span>
+    
+    <span class="c1">##### Use an exponentially decaying learning rate #####</span>
+    <span class="c1"># learning_rate = tf.train.exponential_decay(l_rate, global_step, 10000, 0.96, staircase=True)</span>
+
+    <span class="c1">##################################################</span>
+    <span class="c1">##### Initialize session and train the model #####</span>
+    <span class="c1">##################################################</span>
+
+    <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Starting model training ...&#39;</span><span class="p">)</span>
+
+    <span class="n">global_step</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">trainable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">scope</span><span class="p">:</span>
+        <span class="n">optimizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">GradientDescentOptimizer</span><span class="p">(</span><span class="n">learning_rate</span><span class="o">=</span><span class="n">l_rate</span><span class="p">)</span>
+        <span class="n">train_step</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">cost_train</span><span class="p">,</span> <span class="n">global_step</span><span class="o">=</span><span class="n">global_step</span><span class="p">)</span>
+        <span class="n">mse_summary</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">summary</span><span class="o">.</span><span class="n">scalar</span><span class="p">(</span><span class="s2">&quot;mse_train&quot;</span><span class="p">,</span> <span class="n">cost_train</span><span class="p">)</span>
+
+    <span class="n">sess</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+
+    <span class="c1"># summary_op = tf.summary.merge_all()</span>
+    <span class="c1"># writer = tf.summary.FileWriter(&quot;{}/tf_matrix_factorization_logs&quot;.format(output_dir), sess.graph)</span>
+
+    <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">global_variables_initializer</span><span class="p">())</span>
+    <span class="n">parameters_init</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+
+    <span class="n">cost_train_vals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">cost_test_vals</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_iter</span><span class="p">):</span>    
+        <span class="n">_</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">train_step</span><span class="p">,</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">X_train</span><span class="p">:</span> <span class="n">X_train_dat</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">:</span> <span class="n">Y_train_dat</span><span class="p">})</span>
+        
+        <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="n">save_interval</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+
+            <span class="c1"># training step</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">cost_train</span><span class="p">,</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">X_train</span><span class="p">:</span> <span class="n">X_train_dat</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">:</span> <span class="n">Y_train_dat</span><span class="p">})</span>
+            <span class="n">cost_train_vals</span> <span class="o">+=</span> <span class="p">[</span><span class="n">res</span><span class="p">]</span>
+
+            <span class="n">time_used</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;MSE train at step </span><span class="si">{}</span><span class="s2">: </span><span class="si">{:.3f}</span><span class="s2"> (</span><span class="si">{:.2f}</span><span class="s2">m)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">cost_train_vals</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">time_used</span><span class="o">/</span><span class="mi">60</span><span class="p">))</span>
+
+            <span class="c1"># save parameter</span>
+            <span class="n">parameters_trained</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+            <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;sample_list_train&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sample_list_train</span>
+            <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;sample_list_test&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sample_list_test</span>
+
+            <span class="c1"># make a prediction</span>
+            <span class="c1"># predict(X, Y, S_obs, parameters_trained, X_sample_list, model_spec_name, is_train)</span>
+            <span class="n">test_pred</span><span class="p">,</span> <span class="n">test_cost</span> <span class="o">=</span> <span class="n">predict</span><span class="p">(</span><span class="n">X_test_dat</span><span class="p">,</span> <span class="n">Y_test_dat</span><span class="p">,</span> <span class="n">S_test_obs</span><span class="p">,</span> <span class="n">parameters_trained</span><span class="p">,</span> <span class="n">sample_list_test</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+            <span class="n">cost_test_vals</span> <span class="o">+=</span> <span class="p">[</span><span class="n">test_cost</span><span class="p">]</span>
+            <span class="c1"># summary_str = res[0]</span>
+            <span class="c1"># writer.add_summary(summary_str, i)</span>
+
+    <span class="n">parameters_trained</span><span class="p">,</span> <span class="n">train_pred</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">parameters</span><span class="p">,</span> <span class="n">S_train_pred</span><span class="p">],</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">X_train</span><span class="p">:</span> <span class="n">X_train_dat</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">:</span> <span class="n">Y_train_dat</span><span class="p">})</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;sample_list_train&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sample_list_train</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;sample_list_test&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sample_list_test</span>
+
+    <span class="n">test_pred</span><span class="p">,</span> <span class="n">test_cost</span> <span class="o">=</span> <span class="n">predict</span><span class="p">(</span><span class="n">X_test_dat</span><span class="p">,</span> <span class="n">Y_test_dat</span><span class="p">,</span> <span class="n">S_test_obs</span><span class="p">,</span> <span class="n">parameters_trained</span><span class="p">,</span> <span class="n">sample_list_test</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">train_pred</span><span class="p">,</span> <span class="n">train_cost</span> <span class="o">=</span> <span class="n">predict</span><span class="p">(</span><span class="n">X_train_dat</span><span class="p">,</span> <span class="n">Y_train_dat</span><span class="p">,</span> <span class="n">S_train_obs</span><span class="p">,</span> <span class="n">parameters_trained</span><span class="p">,</span> <span class="n">sample_list_train</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;mse_train_vals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cost_train_vals</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;mse_test_vals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cost_test_vals</span>
+
+    <span class="n">P_train</span><span class="p">,</span> <span class="n">Q_train</span> <span class="o">=</span> <span class="n">get_laten_vectors</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+    <span class="n">P</span><span class="p">,</span> <span class="n">Q</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">P_train</span><span class="p">,</span> <span class="n">Q_train</span><span class="p">],</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">X_train</span><span class="p">:</span> <span class="n">X_train_dat</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">:</span> <span class="n">Y_train_dat</span><span class="p">})</span>
+
+    <span class="n">sess</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="c1">############################</span>
+    <span class="c1">##### Saving the model #####</span>
+    <span class="c1">############################</span>
+
+    <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Saving model parameters and predictions ...&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Save model configurations</span>
+
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;n_dim&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_dim</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;lda&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lda</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;max_iter&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_iter</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;l_rate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">l_rate</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;model_spec_name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_spec_name</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;seed&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">seed</span>
+
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;drug_list&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">drug_list</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;train_sample_list&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sample_list_train</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;kernel_sample_list&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">train_feature_df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+
+    <span class="c1"># Save the prediction and processed data</span>
+
+    <span class="n">pred_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">test_pred</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sample_list_test</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">drug_list</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">obs_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">S_test_obs</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sample_list_test</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">drug_list</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+
+    <span class="n">pred_train_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">train_pred</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sample_list_train</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">drug_list</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">obs_train_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">S_train_obs</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sample_list_train</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">drug_list</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+
+    <span class="n">output_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;pred_test_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred_df</span>
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;obs_test_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">obs_df</span>
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;pred_train_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred_train_df</span>
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;obs_train_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">obs_train_df</span>
+
+    <span class="n">bq</span> <span class="o">=</span> <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;b_Q&#39;</span><span class="p">]</span>
+    <span class="n">bq_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span><span class="n">drug_list</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">bq</span><span class="o">.</span><span class="n">flatten</span><span class="p">())])</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">bq_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;drug_name&#39;</span><span class="p">,</span> <span class="s1">&#39;drug_bias&#39;</span><span class="p">]</span>
+    <span class="n">bq_df</span> <span class="o">=</span> <span class="n">bq_df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;drug_name&#39;</span><span class="p">)</span>
+
+    <span class="n">P_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sample_list_train</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_dim</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">Q_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">drug_list</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_dim</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;b_Q_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bq_df</span>
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;P_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">P_df</span>
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;Q_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Q_df</span>
+
+    <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;DONE&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parameters_trained</span><span class="p">,</span> <span class="n">output_dict</span>
+
+
+<span class="k">def</span> <span class="nf">train_model_logistic_weight</span><span class="p">(</span><span class="n">train_resp_df</span><span class="p">,</span> <span class="n">train_feature_df</span><span class="p">,</span> <span class="n">test_resp_df</span><span class="p">,</span> <span class="n">test_feature_df</span><span class="p">,</span> <span class="n">weights_logistic_x0_df</span><span class="p">,</span> <span class="n">weights_indication_df</span><span class="p">,</span> <span class="n">n_dim</span><span class="p">,</span> <span class="n">lda</span><span class="p">,</span> <span class="n">max_iter</span><span class="p">,</span> <span class="n">l_rate</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="o">=</span><span class="s1">&#39;cadrres-wo-sample-bias-weight&#39;</span><span class="p">,</span> <span class="n">flip_score</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">save_interval</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="s1">&#39;output&#39;</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">&#39;CPU:0&#39;</span><span class="p">):</span>
+
+    <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Getting data ...&#39;</span><span class="p">)</span>
+
+    <span class="c1">################################</span>
+    <span class="c1">##### Setting up the model #####</span>
+    <span class="c1">################################</span>
+
+    <span class="k">if</span> <span class="n">model_spec_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;cadrres-wo-sample-bias-weight&#39;</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">n_drugs</span> <span class="o">=</span> <span class="n">train_resp_df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">drug_list</span> <span class="o">=</span> <span class="n">train_resp_df</span><span class="o">.</span><span class="n">columns</span>
+
+    <span class="n">n_samples</span> <span class="o">=</span> <span class="n">train_resp_df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">sample_list_train</span> <span class="o">=</span> <span class="n">train_resp_df</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">sample_list_test</span> <span class="o">=</span> <span class="n">test_resp_df</span><span class="o">.</span><span class="n">index</span>
+
+    <span class="n">n_x_features</span> <span class="o">=</span> <span class="n">train_feature_df</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">n_y_features</span> <span class="o">=</span> <span class="n">n_drugs</span>
+
+    <span class="n">X_train_dat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">train_feature_df</span><span class="p">)</span>
+    <span class="n">Y_train_dat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">n_drugs</span><span class="p">)</span>
+
+    <span class="n">X_test_dat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">test_feature_df</span><span class="p">)</span>
+    <span class="n">Y_test_dat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">identity</span><span class="p">(</span><span class="n">n_drugs</span><span class="p">)</span>
+
+    <span class="c1">##### Convert log(IC50) to sensitivity scores #####</span>
+    <span class="k">if</span> <span class="n">flip_score</span><span class="p">:</span>
+        <span class="n">S_train_obs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">train_resp_df</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">S_test_obs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">test_resp_df</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">logistic_x0_dat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">weights_logistic_x0_df</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">S_train_obs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">train_resp_df</span><span class="p">)</span>
+        <span class="n">S_test_obs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">test_resp_df</span><span class="p">)</span>
+        <span class="n">logistic_x0_dat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">weights_logistic_x0_df</span><span class="p">)</span>
+
+    <span class="n">weight_indication_dat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">weights_indication_df</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">device</span><span class="p">):</span>
+
+        <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Initializing the model ...&#39;</span><span class="p">)</span>
+
+        <span class="c1">##### Reset TensorFlow graph #####</span>
+        <span class="n">ops</span><span class="o">.</span><span class="n">reset_default_graph</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">output_dir</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+
+        <span class="c1"># TODO: save the model configuration</span>
+
+        <span class="c1">##### Initialize placeholders and parameters #####</span>
+        <span class="n">X_train</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">,</span> <span class="n">logistic_x0</span><span class="p">,</span> <span class="n">weight_indication</span> <span class="o">=</span> <span class="n">create_placeholders</span><span class="p">(</span><span class="n">n_x_features</span><span class="p">,</span> <span class="n">n_y_features</span><span class="p">,</span> <span class="n">sample_weight</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">parameters</span> <span class="o">=</span> <span class="n">initialize_parameters</span><span class="p">(</span><span class="n">n_samples</span><span class="p">,</span> <span class="n">n_drugs</span><span class="p">,</span> <span class="n">n_x_features</span><span class="p">,</span> <span class="n">n_y_features</span><span class="p">,</span> <span class="n">n_dim</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
+
+        <span class="c1">##### Extract only prediction of only observed drug response #####</span>
+        <span class="n">train_known_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">S_train_obs</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)))[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">n_train_known</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_known_idx</span><span class="p">)</span>
+        <span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Train:&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_known_idx</span><span class="p">),</span> <span class="s2">&quot;out of&quot;</span><span class="p">,</span> <span class="n">n_drugs</span> <span class="o">*</span> <span class="n">n_samples</span><span class="p">)</span>
+        <span class="n">ones</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_train_known</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+        <span class="n">S_train_obs_resp</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">S_train_obs</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)[</span><span class="n">train_known_idx</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;S_train_obs_resp&quot;</span><span class="p">)</span>
+
+        <span class="n">S_train_pred</span> <span class="o">=</span> <span class="n">inward_propagation</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">,</span> <span class="n">n_drugs</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="p">)</span>
+        <span class="n">S_train_pred_resp</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">S_train_pred</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="n">train_known_idx</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;S_train_pred_resp&quot;</span><span class="p">)</span>
+
+        <span class="c1">##### TODO: tune this parameter #####</span>
+        <span class="n">O_per_sample</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">logistic_x0</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="n">train_known_idx</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;weight_logistic_x0&quot;</span><span class="p">)</span>
+        <span class="n">O_weight_pred</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">math</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">math</span><span class="o">.</span><span class="n">scalar_mul</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">S_train_pred_resp</span><span class="p">,</span> <span class="n">O_per_sample</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">))</span>
+        <span class="n">O_weight_obs</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">math</span><span class="o">.</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">math</span><span class="o">.</span><span class="n">scalar_mul</span><span class="p">(</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">S_train_obs_resp</span><span class="p">,</span> <span class="n">O_per_sample</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">))</span>
+        <span class="n">C_per_sample</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">math</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">O_weight_pred</span><span class="p">,</span> <span class="n">O_weight_obs</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;C_per_sample&quot;</span><span class="p">)</span>
+
+        <span class="n">D_per_sample</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">weight_indication</span><span class="p">,</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="n">train_known_idx</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;weight_indication&quot;</span><span class="p">)</span>
+
+        <span class="c1">#### Calculate the difference between the predicted sensitivity and the actual #####</span>
+        <span class="n">diff_op_train</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">subtract</span><span class="p">(</span><span class="n">S_train_pred_resp</span><span class="p">,</span> <span class="n">S_train_obs_resp</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;raw_training_error&quot;</span><span class="p">)</span>
+        <span class="n">sqrt_err_per_sample</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">diff_op_train</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;sqrt_err_per_sample&quot;</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="s2">&quot;train_cost&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">scope</span><span class="p">:</span>
+            <span class="n">indication_weighted_se_per_sample</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">D_per_sample</span><span class="p">,</span> <span class="n">sqrt_err_per_sample</span><span class="p">)</span>
+            <span class="n">weighted_se_per_sample</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">C_per_sample</span><span class="p">,</span> <span class="n">indication_weighted_se_per_sample</span><span class="p">)</span>
+            <span class="n">base_cost</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">weighted_se_per_sample</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;base_cost&quot;</span><span class="p">)</span>
+            <span class="c1"># base_cost = tf.reduce_sum(sqrt_err_per_sample, name=&quot;base_cost&quot;)</span>
+            
+            <span class="n">regularizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">multiply</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;W_P&#39;</span><span class="p">])),</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">square</span><span class="p">(</span><span class="n">parameters</span><span class="p">[</span><span class="s1">&#39;W_Q&#39;</span><span class="p">]))),</span> <span class="n">lda</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;regularize&quot;</span><span class="p">)</span>
+            <span class="n">cost_train</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">math</span><span class="o">.</span><span class="n">divide</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">base_cost</span><span class="p">,</span> <span class="n">regularizer</span><span class="p">),</span> <span class="n">n_train_known</span> <span class="o">*</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;avg_error_train&quot;</span><span class="p">)</span>
+        <span class="c1"># TODO: add different kinds of regulalization (the current version uses ridge; see CaDRReS2_tf_matrix_factorization_wo_bp_lasso.py)</span>
+        
+        <span class="c1">##### Use an exponentially decaying learning rate #####</span>
+        <span class="c1"># learning_rate = tf.train.exponential_decay(l_rate, global_step, 10000, 0.96, staircase=True)</span>
+
+        <span class="c1">##################################################</span>
+        <span class="c1">##### Initialize session and train the model #####</span>
+        <span class="c1">##################################################</span>
+
+        <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Starting model training ...&#39;</span><span class="p">)</span>
+
+        <span class="n">global_step</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">trainable</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">name_scope</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">scope</span><span class="p">:</span>
+            <span class="n">optimizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">train</span><span class="o">.</span><span class="n">GradientDescentOptimizer</span><span class="p">(</span><span class="n">learning_rate</span><span class="o">=</span><span class="n">l_rate</span><span class="p">)</span>
+            <span class="n">train_step</span> <span class="o">=</span> <span class="n">optimizer</span><span class="o">.</span><span class="n">minimize</span><span class="p">(</span><span class="n">cost_train</span><span class="p">,</span> <span class="n">global_step</span><span class="o">=</span><span class="n">global_step</span><span class="p">)</span>
+            <span class="n">mse_summary</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">summary</span><span class="o">.</span><span class="n">scalar</span><span class="p">(</span><span class="s2">&quot;mse_train&quot;</span><span class="p">,</span> <span class="n">cost_train</span><span class="p">)</span>
+
+        <span class="n">sess</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+        <span class="c1"># sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))</span>
+
+        <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;TF session started ...&#39;</span><span class="p">)</span>
+
+        <span class="c1"># summary_op = tf.summary.merge_all()</span>
+        <span class="c1"># writer = tf.summary.FileWriter(&quot;{}/tf_matrix_factorization_logs&quot;.format(output_dir), sess.graph)</span>
+
+        <span class="c1"># TODO: update MSE in log to be the weighted version</span>
+
+        <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">global_variables_initializer</span><span class="p">())</span>
+        <span class="n">parameters_init</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>    
+
+        <span class="n">cost_train_vals</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">cost_test_vals</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">O_weight_pred_list</span> <span class="o">=</span> <span class="p">[]</span>
+
+
+        <span class="n">temp1</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">temp1</span><span class="p">[</span><span class="s1">&#39;parameters&#39;</span><span class="p">],</span> <span class="n">temp1</span><span class="p">[</span><span class="s1">&#39;diff_op_train&#39;</span><span class="p">],</span> <span class="n">temp1</span><span class="p">[</span><span class="s1">&#39;O_per_sample&#39;</span><span class="p">],</span> <span class="n">temp1</span><span class="p">[</span><span class="s1">&#39;O_weight_pred&#39;</span><span class="p">],</span> <span class="n">temp1</span><span class="p">[</span><span class="s1">&#39;O_weight_obs&#39;</span><span class="p">],</span> <span class="n">temp1</span><span class="p">[</span><span class="s1">&#39;C_per_sample&#39;</span><span class="p">],</span> <span class="n">temp1</span><span class="p">[</span><span class="s1">&#39;S_train_pred_resp&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">parameters</span><span class="p">,</span> <span class="n">diff_op_train</span><span class="p">,</span> <span class="n">O_per_sample</span><span class="p">,</span> <span class="n">O_weight_pred</span><span class="p">,</span> <span class="n">O_weight_obs</span><span class="p">,</span> <span class="n">C_per_sample</span><span class="p">,</span> <span class="n">S_train_pred_resp</span><span class="p">],</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">X_train</span><span class="p">:</span> <span class="n">X_train_dat</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">:</span> <span class="n">Y_train_dat</span><span class="p">,</span> <span class="n">logistic_x0</span><span class="p">:</span> <span class="n">logistic_x0_dat</span><span class="p">,</span> <span class="n">weight_indication</span><span class="p">:</span> <span class="n">weight_indication_dat</span><span class="p">})</span>
+
+        <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Starting 1st iteration ...&#39;</span><span class="p">)</span>
+
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_iter</span><span class="p">):</span>    
+
+            <span class="n">_</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">train_step</span><span class="p">,</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">X_train</span><span class="p">:</span> <span class="n">X_train_dat</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">:</span> <span class="n">Y_train_dat</span><span class="p">,</span> <span class="n">logistic_x0</span><span class="p">:</span> <span class="n">logistic_x0_dat</span><span class="p">,</span> <span class="n">weight_indication</span><span class="p">:</span> <span class="n">weight_indication_dat</span><span class="p">})</span>
+
+            <span class="n">temp2</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">temp2</span><span class="p">[</span><span class="s1">&#39;parameters&#39;</span><span class="p">],</span> <span class="n">temp2</span><span class="p">[</span><span class="s1">&#39;diff_op_train&#39;</span><span class="p">],</span> <span class="n">temp2</span><span class="p">[</span><span class="s1">&#39;O_per_sample&#39;</span><span class="p">],</span> <span class="n">temp2</span><span class="p">[</span><span class="s1">&#39;O_weight_pred&#39;</span><span class="p">],</span> <span class="n">temp2</span><span class="p">[</span><span class="s1">&#39;O_weight_obs&#39;</span><span class="p">],</span> <span class="n">temp2</span><span class="p">[</span><span class="s1">&#39;C_per_sample&#39;</span><span class="p">],</span> <span class="n">temp2</span><span class="p">[</span><span class="s1">&#39;S_train_pred_resp&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">parameters</span><span class="p">,</span> <span class="n">diff_op_train</span><span class="p">,</span> <span class="n">O_per_sample</span><span class="p">,</span> <span class="n">O_weight_pred</span><span class="p">,</span> <span class="n">O_weight_obs</span><span class="p">,</span> <span class="n">C_per_sample</span><span class="p">,</span> <span class="n">S_train_pred_resp</span><span class="p">],</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">X_train</span><span class="p">:</span> <span class="n">X_train_dat</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">:</span> <span class="n">Y_train_dat</span><span class="p">,</span> <span class="n">logistic_x0</span><span class="p">:</span> <span class="n">logistic_x0_dat</span><span class="p">,</span> <span class="n">weight_indication</span><span class="p">:</span> <span class="n">weight_indication_dat</span><span class="p">})</span>
+            
+            <span class="k">if</span> <span class="n">i</span> <span class="o">%</span> <span class="n">save_interval</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+
+                <span class="c1"># training step</span>
+                <span class="n">res</span><span class="p">,</span> <span class="n">O_weight_pred_vals</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">cost_train</span><span class="p">,</span> <span class="n">O_weight_pred</span><span class="p">],</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">X_train</span><span class="p">:</span> <span class="n">X_train_dat</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">:</span> <span class="n">Y_train_dat</span><span class="p">,</span> <span class="n">logistic_x0</span><span class="p">:</span> <span class="n">logistic_x0_dat</span><span class="p">,</span> <span class="n">weight_indication</span><span class="p">:</span> <span class="n">weight_indication_dat</span><span class="p">})</span>
+                <span class="n">cost_train_vals</span> <span class="o">+=</span> <span class="p">[</span><span class="n">res</span><span class="p">]</span>
+                <span class="n">O_weight_pred_list</span> <span class="o">+=</span> <span class="p">[</span><span class="n">O_weight_pred_vals</span><span class="p">]</span>
+
+                <span class="n">time_used</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;MSE train at step </span><span class="si">{}</span><span class="s2">: </span><span class="si">{:.3f}</span><span class="s2"> (</span><span class="si">{:.2f}</span><span class="s2">m)&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">cost_train_vals</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">time_used</span><span class="o">/</span><span class="mi">60</span><span class="p">))</span>
+
+                <span class="c1"># save parameter</span>
+                <span class="n">parameters_trained</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">parameters</span><span class="p">)</span>
+
+                <span class="c1"># make a prediction</span>
+                <span class="n">test_pred</span><span class="p">,</span> <span class="n">test_cost</span> <span class="o">=</span> <span class="n">predict</span><span class="p">(</span><span class="n">X_test_dat</span><span class="p">,</span> <span class="n">Y_test_dat</span><span class="p">,</span> <span class="n">S_test_obs</span><span class="p">,</span> <span class="n">parameters_trained</span><span class="p">,</span> <span class="n">sample_list_test</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+
+                <span class="n">cost_test_vals</span> <span class="o">+=</span> <span class="p">[</span><span class="n">test_cost</span><span class="p">]</span>
+                <span class="c1"># summary_str = res[0]</span>
+                <span class="c1"># writer.add_summary(summary_str, i)</span>
+
+                <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">res</span><span class="p">):</span>
+                    <span class="k">break</span>
+
+        <span class="n">parameters_trained</span><span class="p">,</span> <span class="n">train_pred</span><span class="p">,</span> <span class="n">O_weight_pred_vals</span><span class="p">,</span> <span class="n">O_weight_obs_vals</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">parameters</span><span class="p">,</span> <span class="n">S_train_pred</span><span class="p">,</span> <span class="n">O_weight_pred</span><span class="p">,</span> <span class="n">O_weight_obs</span><span class="p">],</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">X_train</span><span class="p">:</span> <span class="n">X_train_dat</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">:</span> <span class="n">Y_train_dat</span><span class="p">,</span> <span class="n">logistic_x0</span><span class="p">:</span> <span class="n">logistic_x0_dat</span><span class="p">,</span> <span class="n">weight_indication</span><span class="p">:</span> <span class="n">weight_indication_dat</span><span class="p">})</span>
+        <span class="n">test_pred</span><span class="p">,</span> <span class="n">test_cost</span> <span class="o">=</span> <span class="n">predict</span><span class="p">(</span><span class="n">X_test_dat</span><span class="p">,</span> <span class="n">Y_test_dat</span><span class="p">,</span> <span class="n">S_test_obs</span><span class="p">,</span> <span class="n">parameters_trained</span><span class="p">,</span> <span class="n">sample_list_test</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">train_cost</span> <span class="o">=</span> <span class="n">predict</span><span class="p">(</span><span class="n">X_train_dat</span><span class="p">,</span> <span class="n">Y_train_dat</span><span class="p">,</span> <span class="n">S_train_obs</span><span class="p">,</span> <span class="n">parameters_trained</span><span class="p">,</span> <span class="n">sample_list_train</span><span class="p">,</span> <span class="n">model_spec_name</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;mse_train_vals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cost_train_vals</span>
+        <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;mse_test_vals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cost_test_vals</span>
+
+        <span class="n">O_weight_pred_list</span> <span class="o">+=</span> <span class="p">[</span><span class="n">O_weight_pred_vals</span><span class="p">]</span>
+        <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;O_weight_pred_vals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">O_weight_pred_list</span><span class="p">)</span>
+        <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;O_weight_obs_vals&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">O_weight_obs_vals</span>
+        <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;train_known_idx&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">train_known_idx</span>
+
+        <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;temp1&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">temp1</span>
+        <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;temp2&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">temp2</span>
+
+        <span class="n">P_train</span><span class="p">,</span> <span class="n">Q_train</span> <span class="o">=</span> <span class="n">get_laten_vectors</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">,</span> <span class="n">parameters</span><span class="p">)</span>
+        <span class="n">P</span><span class="p">,</span> <span class="n">Q</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="n">P_train</span><span class="p">,</span> <span class="n">Q_train</span><span class="p">],</span> <span class="n">feed_dict</span><span class="o">=</span><span class="p">{</span><span class="n">X_train</span><span class="p">:</span> <span class="n">X_train_dat</span><span class="p">,</span> <span class="n">Y_train</span><span class="p">:</span> <span class="n">Y_train_dat</span><span class="p">})</span>
+
+        <span class="n">sess</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="c1">############################</span>
+    <span class="c1">##### Saving the model #####</span>
+    <span class="c1">############################</span>
+
+    <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;Saving model parameters and predictions ...&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Save model configurations</span>
+
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;n_dim&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_dim</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;lda&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lda</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;max_iter&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">max_iter</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;l_rate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">l_rate</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;model_spec_name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_spec_name</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;seed&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">seed</span>
+
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;drug_list&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">drug_list</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;train_sample_list&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sample_list_train</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;kernel_sample_list&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">train_feature_df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;weights_logistic_x0&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">weights_logistic_x0_df</span>
+    <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;weights_indication&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">weights_indication_df</span>
+
+    <span class="c1"># Save the prediction and processed data</span>
+
+    <span class="n">pred_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">test_pred</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sample_list_test</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">drug_list</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">obs_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">S_test_obs</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sample_list_test</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">drug_list</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+
+    <span class="n">pred_train_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">train_pred</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sample_list_train</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">drug_list</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">obs_train_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">S_train_obs</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sample_list_train</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">drug_list</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+
+    <span class="n">output_dict</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;pred_test_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred_df</span>
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;obs_test_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">obs_df</span>
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;pred_train_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred_train_df</span>
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;obs_train_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">obs_train_df</span>
+
+    <span class="n">bq</span> <span class="o">=</span> <span class="n">parameters_trained</span><span class="p">[</span><span class="s1">&#39;b_Q&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">bq_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span><span class="n">drug_list</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">bq</span><span class="o">.</span><span class="n">flatten</span><span class="p">())])</span><span class="o">.</span><span class="n">T</span>
+    <span class="n">bq_df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;drug_name&#39;</span><span class="p">,</span> <span class="s1">&#39;drug_bias&#39;</span><span class="p">]</span>
+    <span class="n">bq_df</span> <span class="o">=</span> <span class="n">bq_df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;drug_name&#39;</span><span class="p">)</span>
+
+    <span class="n">P_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">P</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sample_list_train</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_dim</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+    <span class="n">Q_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">drug_list</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_dim</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;b_Q_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bq_df</span>
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;P_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">P_df</span>
+    <span class="n">output_dict</span><span class="p">[</span><span class="s1">&#39;Q_df&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Q_df</span>
+
+    <span class="nb">print</span> <span class="p">(</span><span class="s1">&#39;DONE&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parameters_trained</span><span class="p">,</span> <span class="n">output_dict</span>
+
+<span class="k">def</span> <span class="nf">get_sample_weights_logistic_x0</span><span class="p">(</span><span class="n">drug_df</span><span class="p">,</span> <span class="n">log2_max_conc_col_name</span><span class="p">,</span> <span class="n">sample_list</span><span class="p">):</span>
+    <span class="n">drug_list</span> <span class="o">=</span> <span class="n">drug_df</span><span class="o">.</span><span class="n">index</span>
+    <span class="n">max_conc</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">drug_df</span><span class="p">[[</span><span class="n">log2_max_conc_col_name</span><span class="p">]])</span>
+    <span class="n">n_samples</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sample_list</span><span class="p">)</span>
+    <span class="n">weights_logistic_x0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">max_conc</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">weights_logistic_x0_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">weights_logistic_x0</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">drug_list</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">sample_list</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">weights_logistic_x0_df</span>
+
+
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">CaDRReS 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Nok.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.0.0+.
+    </div>
+  </body>
+</html>
