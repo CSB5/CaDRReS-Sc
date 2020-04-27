@@ -8,7 +8,9 @@
 
 import pandas as pd
 
-def get_sample_cluster_percent(sample_cell_df, cutoff=0.1):
+# TODO: functions for preprocessing scRNA-seq data
+
+def get_sample_cluster_percent(sample_cell_df, cutoff=0.05):
     """Calculate proportion of each cell cluster in each sample
 
     :param cell_cluster_df: Two columns for cell_id and cluster_id
@@ -18,8 +20,7 @@ def get_sample_cluster_percent(sample_cell_df, cutoff=0.1):
     :returns:  DataFrame (cell_cluster_proportion_df) of proportion of cell clusters (row:sample, col:cluster)
 
     """
-
-    return pd.DataFrame([None])
+    # return pd.DataFrame([None])
 
 def calculate_het_score(cell_cluster_proportion_df):
     """Calculate intra-sample heterogeneity score using entropy (with renormalization)
@@ -33,8 +34,6 @@ def calculate_het_score(cell_cluster_proportion_df):
 def calculate_cluster_prof(sc_log2_exp_df, sc_info_df):
     """Calculate gene expression profile for each cell cluster
     """
-
-    exp_with_info_df = pd.merge(sc_log2_exp_df.T, sc_info_df[['Cluster']], left_index=True, right_index=True)
-
-    return exp_with_info_df.groupby('Cluster').quantile(.95).T
+    # exp_with_info_df = pd.merge(sc_log2_exp_df.T, sc_info_df[['Cluster']], left_index=True, right_index=True)
+    # return exp_with_info_df.groupby('Cluster').median().T
 

@@ -142,7 +142,6 @@ def calculate_drug_pathway_assoc(pathway_activity_df, response_df):
 
 def calculate_pathway_activity_gsea(log2_median_fc_exp_df, pathway_db_name='Biocarta'):
     """Calculate pathway activity
-
     """
 
     return pd.DataFrame([None])

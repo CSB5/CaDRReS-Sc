@@ -17,13 +17,17 @@ def log2_exp(exp_df):
 
     return np.log2(exp_df + 1)
 
+# TODO: add pseudo count for RNA-seq data
 def normalize_log2_mean_fc(log2_exp_df):
-    """Calculate gene expression foldchange based on median of each genes. The sample size should be large enough (>10).
+    """Calculate gene expression fold-change based on median of each genes. The sample size should be large enough (>10).
     """
 
     return (log2_exp_df.T - log2_exp_df.mean(axis=1)).T, pd.DataFrame(log2_exp_df.mean(axis=1), columns=['median'])
 
 def normalize_log2_mean_fc_with_ref(log2_exp_df, log2_ref_exp_df):
+    """Calculate gene expression fold-change based on median of each genes. 
+    This should not be used if the data come from different experiments.
+    """
 
     common_genes = set(log2_ref_exp_df.index).intersection(log2_exp_df.index)
     log2_exp_df = log2_exp_df.loc[common_genes]
@@ -35,7 +39,7 @@ def normalize_L1000_suite():
     """
     """
 
-# TODO: make this multiprocessor
+# TODO: make this run in parallel
 def calculate_kernel_feature(log2_median_fc_exp_df, ref_log2_median_fc_exp_df, gene_list):
     common_genes = [g for g in gene_list if (g in log2_median_fc_exp_df.index) and (g in ref_log2_median_fc_exp_df.index)]
     

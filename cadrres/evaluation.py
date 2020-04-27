@@ -39,8 +39,7 @@ def calculate_spearman_multi_pred(obs_df, pred_df_dict, sample_list, drug_list):
     
     return all_per_sample_df, all_per_drug_df
 
-def cal_ndcg(obs_df, pred_df):
-
-	sample_ndcg_df = pd.DataFrame([None])
-
-	return sample_ndcg_df
+# TODO: other evaluation scores
+# def cal_ndcg(obs_df, pred_df):
+# 	sample_ndcg_df = pd.DataFrame([None])
+# 	return sample_ndcg_df

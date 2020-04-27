@@ -13,54 +13,53 @@ import os, pickle, time
 import tensorflow as tf
 from tensorflow.python.framework import ops
 
+# TODO:
+# 1) update to tensorflow v.2 and using standard model.save(h5)
+# 2) support original cadrres version with an improved bias estimation
+
 def load_model(model_fname):
 
     """Load a pre-trained model
 
-    :param model_name: gdsc, gdsc-no-bias, ccle, gdsc-cyto, gdsc-target, gdsc-no-bias-cyto, gdsc-no-bias-target
+	:param model_fname: File name of the model
+	:return: model_dict contains model information
 
     """
 
-    return pickle.load(open(model_fname, 'br'))
+    model_dict = pickle.load(open(model_fname, 'br'))
+
+    return model_dict
 
 
-def get_model_param(pg_space):
+# def get_model_param(pg_space):
+
     """Get model paramters
-
-    :param model_param_fname: Name of trained model (hdf5 file)
-    :type model_param_fname: string
-    :returns:  Dict of model parameters
-
     """
 
-def get_training_info(pg_space):
+# def get_training_info(pg_space):
+
     """Get training information
-
-    :param model_param_dict: Dict of model parameters
-    :type model_param_dict: dict
-    :returns:  Dataframe of model training info (drug confidence, etc.)
-
     """
 
-# def predict_from_model(model_dict, test_kernel_df, drug_list, model_spec_name='cadrres-wo-sample-bias'):
 def predict_from_model(model_dict, test_kernel_df, model_spec_name='cadrres-wo-sample-bias'):
 
+    """Make a prediction of testing samples. Only for the model without sample bias.
+    """
+
     # TODO: add other model types and update the scrip accordingly
-    if model_spec_name not in ['cadrres-wo-sample-bias']:
+    if model_spec_name not in ['cadrres-wo-sample-bias', 'cadrres-wo-sample-bias-weight']:
         return None
 
     sample_list = list(test_kernel_df.index)
     
-    # drug_list = drug_list
     # Read drug list from model_dict
     drug_list = model_dict['drug_list']
     kernel_sample_list = model_dict['kernel_sample_list']
 
-    ##### Prepare input #####
-    # X = np.matrix(test_kernel_df)
+    # Prepare input
     X = np.matrix(test_kernel_df[kernel_sample_list])
 
-    ##### Make a prediction #####
+    # Make a prediction
     b_q = model_dict['b_Q']
     WP = model_dict['W_P']
     WQ = model_dict['W_Q']
@@ -71,13 +70,17 @@ def predict_from_model(model_dict, test_kernel_df, model_spec_name='cadrres-wo-s
     pred = pred * -1 # convert sensitivity score to IC50
     pred_df = pd.DataFrame(pred, sample_list, drug_list)
 
-    ###### Projections #####
+    # Projections
     P_test = X * WP
-    P_test_df = pd.DataFrame(P_test, index=sample_list, columns=range(1,n_dim+1))
+    P_test_df = pd.DataFrame(P_test, index=sample_list, columns=range(1,n_dim+1))  
     
     return pred_df, P_test_df
 
 def calculate_baseline_prediction(obs_resp_df, train_sample_list, drug_list, test_sample_list):
+
+    """Calculate baseline prediction, i.e., for each drug, predict the average response.
+    """
+
     repeated_val = np.repeat([obs_resp_df.loc[train_sample_list, drug_list].mean().values], len(test_sample_list), axis=0)
     return pd.DataFrame(repeated_val, index=test_sample_list, columns=drug_list)
 
@@ -90,21 +93,30 @@ def calculate_baseline_prediction(obs_resp_df, train_sample_list, drug_list, tes
 
 def create_placeholders(n_x_features, n_y_features, sample_weight=False):
 
-    '''
-    sample_logistic_weight_df (sample, drug) contains x0 for each logistic curve of sample weight.
-    '''
+    """
+    Create placeholders for model inputs
+    """
 
+    # gene expression
     X = tf.placeholder(tf.float32, [None, n_x_features])
+    # drug response
     Y = tf.placeholder(tf.float32, [None, n_y_features])
     if sample_weight:
-        # O = tf.placeholder(name="weights_logistic_x0", shape=weights_logistic_x0_df.shape, dtype=tf.float32)
+        # for logistic weight based on maximum drug dosage
         O = tf.placeholder(tf.float32, [None, None])
+        # for indication-specific weight
         D = tf.placeholder(tf.float32, [None, None])
         return X, Y, O, D
     else:
         return X, Y
 
 def initialize_parameters(n_samples, n_drugs, n_x_features, n_y_features, n_dimensions, seed):
+
+    """
+    Initialize parameters
+    Depending on the objective function, b_P might not be used in the later step.
+    """
+
     parameters = {}
 
     parameters['W_P'] = tf.Variable(tf.truncated_normal([n_x_features, n_dimensions], stddev=0.2, mean=0, seed=seed), name="W_P")
@@ -115,6 +127,11 @@ def initialize_parameters(n_samples, n_drugs, n_x_features, n_y_features, n_dime
     return parameters
 
 def inward_propagation(X, Y, parameters, n_samples, n_drugs, model_spec_name):
+
+    """
+    Define base objective function
+    """
+
     W_P = parameters['W_P']
     W_Q = parameters['W_Q']
     P = tf.matmul(X, W_P)
@@ -127,6 +144,7 @@ def inward_propagation(X, Y, parameters, n_samples, n_drugs, model_spec_name):
         S = tf.add(b_Q_mat, tf.add(b_P_mat, tf.matmul(P, tf.transpose(Q))))
     elif model_spec_name in ['cadrres-wo-sample-bias', 'cadrres-wo-sample-bias-weight']:
         S = tf.add(b_Q_mat, tf.matmul(P, tf.transpose(Q)))
+    # TODO: add the model without both drug and sample biases
     # elif model_spec_name == 'cadrres-wo-bias':
     #     S = tf.matmul(P, tf.transpose(Q))
     else:
@@ -134,7 +152,12 @@ def inward_propagation(X, Y, parameters, n_samples, n_drugs, model_spec_name):
 
     return S
 
-def get_laten_vectors(X, Y, parameters):
+def get_latent_vectors(X, Y, parameters):
+
+    """
+    Get latent vectors of cell line (P) and drug (Q) on the pharmacogenomic space
+    """
+
     W_P = parameters['W_P']
     W_Q = parameters['W_Q']
     P = tf.matmul(X, W_P)
@@ -144,6 +167,11 @@ def get_laten_vectors(X, Y, parameters):
 ##### Predicting function #####
 
 def predict(X, Y, S_obs, parameters_trained, X_sample_list, model_spec_name, is_train):
+
+    """
+    Make a prediction and calculate cost. This function is used in the training step.
+    """
+
     n_samples = len(X_sample_list)
     n_drugs = Y.shape[1]
     
@@ -187,15 +215,34 @@ def predict(X, Y, S_obs, parameters_trained, X_sample_list, model_spec_name, is_
 
     return S, cost
 
-# TODO: create additional predict functions for other model types and for bias estimation (see CaDRReS2_tf_matrix_factorization_wo_bp.py)
-
 ##### Training function #####
 
 def train_model(train_resp_df, train_feature_df, test_resp_df, test_feature_df, n_dim, lda, max_iter, l_rate, model_spec_name='cadrres-wo-sample-bias', flip_score=True, seed=1, save_interval=1000, output_dir='output'):
 
+    """
+    Train a model. This is for the original cadrres and cadrres-wo-sample-bias
+
+    :param train_resp_df: drug response training data
+    :param train_feature_df: kernel feature training data
+    :param test_resp_df: drug response testing data
+    :param test_feature_df: kernel feature testing data
+    :param n_dim: number of dimension of the latent space
+    :param lda: regularization factor
+    :param max_iter: maximum iteration
+    :param l_rate: learning rate
+    :param model_spec_name: model specification to define an objective function
+    :param flip_score: if `True` then multiple by -1. This is used for converting IC50 to sensitivity score.
+    :param seed: random seed for parameter initialization
+    :param save_interval: interval for saving results
+    :param output_dir: output directory
+
+    :returns: `parameters_trained` contains trained paramters and `output_dict` contains predictions
+
+    """
+
     print ('Initializing the model ...')
 
-    ##### Reset TensorFlow graph #####
+    # Reset TensorFlow graph
     ops.reset_default_graph()
 
     if not os.path.exists(output_dir):
@@ -255,6 +302,7 @@ def train_model(train_resp_df, train_feature_df, test_resp_df, test_feature_df, 
         base_cost = tf.reduce_sum(tf.square(diff_op_train, name="squared_diff_train"), name="sse_train")
         regularizer = tf.multiply(tf.add(tf.reduce_sum(tf.square(parameters['W_P'])), tf.reduce_sum(tf.square(parameters['W_Q']))), lda, name="regularize")
         cost_train = tf.math.divide(tf.add(base_cost, regularizer), n_train_known * 2.0, name="avg_error_train")
+
     # TODO: add different kinds of regulalization (the current version uses ridge; see CaDRReS2_tf_matrix_factorization_wo_bp_lasso.py)
     
     ##### Use an exponentially decaying learning rate #####
@@ -275,6 +323,7 @@ def train_model(train_resp_df, train_feature_df, test_resp_df, test_feature_df, 
 
     sess = tf.Session()
 
+    # TODO: save model every save_interval
     # summary_op = tf.summary.merge_all()
     # writer = tf.summary.FileWriter("{}/tf_matrix_factorization_logs".format(output_dir), sess.graph)
 
@@ -303,7 +352,6 @@ def train_model(train_resp_df, train_feature_df, test_resp_df, test_feature_df, 
             parameters_trained['sample_list_test'] = sample_list_test
 
             # make a prediction
-            # predict(X, Y, S_obs, parameters_trained, X_sample_list, model_spec_name, is_train)
             test_pred, test_cost = predict(X_test_dat, Y_test_dat, S_test_obs, parameters_trained, sample_list_test, model_spec_name, False)
 
             cost_test_vals += [test_cost]
@@ -319,7 +367,7 @@ def train_model(train_resp_df, train_feature_df, test_resp_df, test_feature_df, 
     parameters_trained['mse_train_vals'] = cost_train_vals
     parameters_trained['mse_test_vals'] = cost_test_vals
 
-    P_train, Q_train = get_laten_vectors(X_train, Y_train, parameters)
+    P_train, Q_train = get_latent_vectors(X_train, Y_train, parameters)
     P, Q = sess.run([P_train, Q_train], feed_dict={X_train: X_train_dat, Y_train: Y_train_dat})
 
     sess.close()
@@ -373,8 +421,31 @@ def train_model(train_resp_df, train_feature_df, test_resp_df, test_feature_df, 
 
     return parameters_trained, output_dict
 
-
 def train_model_logistic_weight(train_resp_df, train_feature_df, test_resp_df, test_feature_df, weights_logistic_x0_df, weights_indication_df, n_dim, lda, max_iter, l_rate, model_spec_name='cadrres-wo-sample-bias-weight', flip_score=True, seed=1, save_interval=1000, output_dir='output', device='CPU:0'):
+
+    """
+    Train a model. This is for CaDRReS-Sc, i.e. cadrres-wo-sample-bias-weight
+
+    :param train_resp_df: drug response training data
+    :param train_feature_df: kernel feature training data
+    :param test_resp_df: drug response testing data
+    :param test_feature_df: kernel feature testing data
+    :param weights_logistic_x0_df: logistic weight based on the maximum concentration
+    :param weights_indication_df: indication-specific weight
+    :param n_dim: number of dimension of the latent space
+    :param lda: regularization factor
+    :param max_iter: maximum iteration
+    :param l_rate: learning rate
+    :param model_spec_name: model specification to define an objective function
+    :param flip_score: if `True` then multiple by -1. This is used for converting IC50 to sensitivity score.
+    :param seed: random seed for parameter initialization
+    :param save_interval: interval for saving results
+    :param output_dir: output directory
+    :param device: select device for tensorflow
+
+    :returns: `parameters_trained` contains trained paramters and `output_dict` contains predictions
+
+    """
 
     print ('Getting data ...')
 
@@ -440,7 +511,8 @@ def train_model_logistic_weight(train_resp_df, train_feature_df, test_resp_df, t
         S_train_pred = inward_propagation(X_train, Y_train, parameters, n_samples, n_drugs, model_spec_name)
         S_train_pred_resp = tf.gather(tf.reshape(S_train_pred, [-1]), train_known_idx, name="S_train_pred_resp")
 
-        ##### TODO: tune this parameter #####
+        ##### Assign weights #####
+        # TODO: tune parameters (slope and shift) for sigmoid function for assigning weight
         O_per_sample = tf.gather(tf.reshape(logistic_x0, [-1]), train_known_idx, name="weight_logistic_x0")
         O_weight_pred = tf.math.sigmoid(tf.math.scalar_mul(10.0, tf.subtract(S_train_pred_resp, O_per_sample) + 0.5))
         O_weight_obs = tf.math.sigmoid(tf.math.scalar_mul(10.0, tf.subtract(S_train_obs_resp, O_per_sample) + 0.5))
@@ -460,6 +532,7 @@ def train_model_logistic_weight(train_resp_df, train_feature_df, test_resp_df, t
             
             regularizer = tf.multiply(tf.add(tf.reduce_sum(tf.square(parameters['W_P'])), tf.reduce_sum(tf.square(parameters['W_Q']))), lda, name="regularize")
             cost_train = tf.math.divide(tf.add(base_cost, regularizer), n_train_known * 1.0, name="avg_error_train")
+        
         # TODO: add different kinds of regulalization (the current version uses ridge; see CaDRReS2_tf_matrix_factorization_wo_bp_lasso.py)
         
         ##### Use an exponentially decaying learning rate #####
@@ -496,9 +569,8 @@ def train_model_logistic_weight(train_resp_df, train_feature_df, test_resp_df, t
 
         O_weight_pred_list = []
 
-
-        temp1 = {}
-        temp1['parameters'], temp1['diff_op_train'], temp1['O_per_sample'], temp1['O_weight_pred'], temp1['O_weight_obs'], temp1['C_per_sample'], temp1['S_train_pred_resp'] = sess.run([parameters, diff_op_train, O_per_sample, O_weight_pred, O_weight_obs, C_per_sample, S_train_pred_resp], feed_dict={X_train: X_train_dat, Y_train: Y_train_dat, logistic_x0: logistic_x0_dat, weight_indication: weight_indication_dat})
+        # temp1 = {}
+        # temp1['parameters'], temp1['diff_op_train'], temp1['O_per_sample'], temp1['O_weight_pred'], temp1['O_weight_obs'], temp1['C_per_sample'], temp1['S_train_pred_resp'] = sess.run([parameters, diff_op_train, O_per_sample, O_weight_pred, O_weight_obs, C_per_sample, S_train_pred_resp], feed_dict={X_train: X_train_dat, Y_train: Y_train_dat, logistic_x0: logistic_x0_dat, weight_indication: weight_indication_dat})
 
         print ('Starting 1st iteration ...')
 
@@ -507,8 +579,8 @@ def train_model_logistic_weight(train_resp_df, train_feature_df, test_resp_df, t
 
             _ = sess.run(train_step, feed_dict={X_train: X_train_dat, Y_train: Y_train_dat, logistic_x0: logistic_x0_dat, weight_indication: weight_indication_dat})
 
-            temp2 = {}
-            temp2['parameters'], temp2['diff_op_train'], temp2['O_per_sample'], temp2['O_weight_pred'], temp2['O_weight_obs'], temp2['C_per_sample'], temp2['S_train_pred_resp'] = sess.run([parameters, diff_op_train, O_per_sample, O_weight_pred, O_weight_obs, C_per_sample, S_train_pred_resp], feed_dict={X_train: X_train_dat, Y_train: Y_train_dat, logistic_x0: logistic_x0_dat, weight_indication: weight_indication_dat})
+            # temp2 = {}
+            # temp2['parameters'], temp2['diff_op_train'], temp2['O_per_sample'], temp2['O_weight_pred'], temp2['O_weight_obs'], temp2['C_per_sample'], temp2['S_train_pred_resp'] = sess.run([parameters, diff_op_train, O_per_sample, O_weight_pred, O_weight_obs, C_per_sample, S_train_pred_resp], feed_dict={X_train: X_train_dat, Y_train: Y_train_dat, logistic_x0: logistic_x0_dat, weight_indication: weight_indication_dat})
             
             if i % save_interval == 0:
 
@@ -544,10 +616,10 @@ def train_model_logistic_weight(train_resp_df, train_feature_df, test_resp_df, t
         parameters_trained['O_weight_obs_vals'] = O_weight_obs_vals
         parameters_trained['train_known_idx'] = train_known_idx
 
-        parameters_trained['temp1'] = temp1
-        parameters_trained['temp2'] = temp2
+        # parameters_trained['temp1'] = temp1
+        # parameters_trained['temp2'] = temp2
 
-        P_train, Q_train = get_laten_vectors(X_train, Y_train, parameters)
+        P_train, Q_train = get_latent_vectors(X_train, Y_train, parameters)
         P, Q = sess.run([P_train, Q_train], feed_dict={X_train: X_train_dat, Y_train: Y_train_dat})
 
         sess.close()
@@ -605,6 +677,11 @@ def train_model_logistic_weight(train_resp_df, train_feature_df, test_resp_df, t
     return parameters_trained, output_dict
 
 def get_sample_weights_logistic_x0(drug_df, log2_max_conc_col_name, sample_list):
+
+    """
+    Calculate weights_logistic_x0_df, which is an input of train_model_logistic_weight. The logistic weight is assigned to each drug-sample pair with respect to maximum drug dosage.
+    """
+
     drug_list = drug_df.index
     max_conc = np.array(drug_df[[log2_max_conc_col_name]])
     n_samples = len(sample_list)
