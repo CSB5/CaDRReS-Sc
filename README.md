@@ -1,6 +1,3 @@
-# CaDRReS-Sc
----
-
 ## Introduction
 
 CaDRReS-Sc is a framework that robustly combines single-cell RNA-sequencing (scRNA-seq) data with a recommender system to predict drug response heterogeneity in a tumor. It is extended from our an existing recommender system trained with cancer cell line data *(Suphavilai et al., 2018)*. A novel objective function enables the model to simultaneously classify sensitive/resistant cell types and predict half-maximal inhibitory concentration (IC50) values for sensitive cases. Comparison of predictive accuracy versus a naïve objective function (mean squared error for IC50) in [CaDRReS](https://github.com/CSB5/CaDRReS/) on unseen cell lines showed significant improvements, especially for drugs with a smaller proportion of sensitive cell lines. These new features improve robustness on diverse, unseen cell types, and the ability to combine cell-specific predictions into accurate tumor response values.
@@ -26,7 +23,7 @@ CaDRReS-Sc is based on Python 3.x
 
 ## Notes
 
-This repository is a new implementation of a recommender system for predicting moto- and combinatorial therapy response based on single-cell RNA-Seq data. The model relies on a novel objective function, resulting in a more robust prediction on unseen samples. CaDRReS-Sc is based on *TensorFlow v1.14*, allowing users to select optimizer, alternative objective functions, and reduce model training time. 
+This repository is a new implementation of a recommender system for predicting moto- and combinatorial therapy response based on scRNA-Seq data. The model relies on a novel objective function, resulting in a more robust prediction on unseen samples. CaDRReS-Sc is based on *TensorFlow v1.14*, allowing users to select optimizer, alternative objective functions, and reduce model training time. 
 
 Our CaDRReS-Sc manuscript is under review.
 
