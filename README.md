@@ -1,33 +1,39 @@
 # Introduction
 
-CaDRReS-Sc is a recommender system framework for drug response prediction based on single-cell RNA-sequencing (scRNA-seq) data. It takes into account intra-tumor transcriptomic heterogeneity to predict drug response heterogeneity within a tumor, as well as overall responses to monotherapy and combinatorial drugs. 
+CaDRReS-Sc is an AI-environment system for robust cancer drug response prediction based on single-cell RNA-sequencing (scRNA-seq). It is a reimplementation of our existing recommender system ([CaDRReS](https://github.com/CSB5/CaDRReS), [Suphavilai et al., 2018](https://academic.oup.com/bioinformatics/article/34/22/3907/5026663)) with novel objective function calibrated for diverse cell types, accounting for intra-tumor transcriptomic heterogeneity (Suphavilai et al., 2020). In addition to monotherapy response, CaDRReS-Sc can also predict response to combinatorial drugs.
 
 **Key features:**
 
-- Train CaDRReS-Sc model using     a publicly available drug response dataset such as GDSC ([Tutorial](https://github.com/CSB5/CaDRReS-Sc/blob/master/notebook/notebook_01_model_training.ipynb))
-- Predict drug response of     unseen samples based on gene expression profile using CaDRReS-Sc model ([Tutorial](https://github.com/CSB5/CaDRReS-Sc/blob/master/notebook/notebook_02_prediction.ipynb))
-- Predict drug response in the     presence of intra-tumor transcriptomic heterogeneity based on scRNA-seq     data. In this [tutorial](https://github.com/CSB5/CaDRReS-Sc/blob/master/notebook/notebook_03_monotherapy_and_combinatorial_drugs.ipynb), we explain how to apply the     pre-trained CaDRReS-Sc model to predict heterogeneous drug response within     each patient/tumor. Briefly, user can apply an [existing      single-cell clustering tool](https://github.com/theislab/scanpy) to identify transcriptomically     distinct *clusters* or *clones*, calculate cluster-specific gene     expression profile, and obtain cluster proportions within each *heterogeneous     sample* (patient/tumor). Based on this information, user apply     CaDRReS-Sc model to predict overall monotherapy and combinatorial drug     response for each patient.
-- A novel objective function     enables CaDRReS-Sc to simultaneously classify sensitive/resistant cell     types and predict half-maximal inhibitory concentration (IC50) values for     sensitive cases. *Please refer to our manuscript for more detail about     the novel objective function.*
-- CaDRReS-Sc relies on *kernel     features* which capture similarity of the gene expression profile,     rather than directly using gene expression values *(Suphavilai et al.,     2018)*. This feature allows the model to work across gene expression     platforms; for example, the model trained on microarray data can be used     for predicting drug response based on RNA-Seq data.
+- Predict monotherapy and combinatorial drugs response in the presence of transcriptomic heterogeneity based on scRNA-seq and predefined single-cell clustering from [Scanpy](https://github.com/theislab/scanpy). (See [tutorial notebook](https://github.com/CSB5/CaDRReS-Sc/blob/master/notebooks/predicting_monotherapy_combinatorial_drugs_scrna-seq.ipynb))
+- Predict half-maximal inhibitory concentration (IC50) based on gene expression profiles and maximum drug dosage using a pre-trained model, which is trained from a public cancer drug response dataset ([GDSC](https://www.cancerrxgene.org/celllines)). (See [a tutorial](https://github.com/CSB5/CaDRReS-Sc/blob/master/notebooks/prediction_pretrained_model.ipynb) on predicting drug response)
+- Train a new model from other drug response dataset. (See [a model training tutorial](https://github.com/CSB5/CaDRReS-Sc/blob/master/notebooks/model_training.ipynb))
+- Robust to diverse gene expression platforms (such as microarray and RNA-seq) and provide an interpretable latent pharmacogenomic space ([Suphavilai et al., 2018](https://academic.oup.com/bioinformatics/article/34/22/3907/5026663), Suphavilai et al., 2020).
 
 # Usage
 
-git clone https://github.com/CSB5/CaDRReS-Sc.git
+``git clone https://github.com/CSB5/CaDRReS-Sc.git``
 
 CaDRReS-Sc is based on Python 3.x
 
-**Require packages**
+**Required packages**
 
 - Pandas
 - Numpy
 - TensorFlow 1.14
-- [Optional package for     single-cell clustering] [Scanpy](https://github.com/theislab/scanpy)
 
-**Example usages** can be found in Jupyter [notebook](https://github.com/CSB5/CaDRReS-Sc/tree/master/notebook).
+**Optional package**
 
-# Notes
+- [Scanpy](https://github.com/theislab/scanpy) (for single-cell clustering)
 
-This repository is a new implementation of a recommender system for predicting moto- and combinatorial therapy response based on scRNA-Seq data. The model relies on a novel objective function, resulting in a more robust prediction on unseen samples. CaDRReS-Sc is based on *TensorFlow v1.14*, allowing users to select optimizer, alternative objective functions, and reduce model training time. 
+**Usage examples** can be found in [notebooks](https://github.com/CSB5/CaDRReS-Sc/tree/master/notebooks).
+
+# Citation
+
+Suphavilai, C., et al. Predicting heterogeneity in clone-specific therapeutic vulnerabilities using single-cell transcriptomic signatures. 2020 November. (bioRxiv; Manuscript submitted)
+
+Alternatively, you can cite our CaDRReS paper for the concepts of kernel features and latent pharmacogenomic space:
+
+Suphavilai C, Bertrand D, Nagarajan N. Predicting cancer drug response using a recommender system. [Bioinformatics](https://academic.oup.com/bioinformatics/article/34/22/3907/5026663). 2018 Nov 15;34(22):3907-14.
 
 # Contact information
 
