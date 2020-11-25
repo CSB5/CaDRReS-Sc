@@ -17,9 +17,9 @@ CaDRReS-Sc is based on Python 3.x
 
 **Required packages**
 
-- Pandas
-- Numpy
-- TensorFlow 1.14
+- [Pandas](https://pandas.pydata.org/)
+- [Numpy](https://numpy.org/)
+- [TensorFlow 1.14](https://www.tensorflow.org/install/pip)
 
 **Optional package**
 
