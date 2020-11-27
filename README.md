@@ -27,7 +27,261 @@ CaDRReS-Sc is based on Python 3.x
 
 - [Scanpy](https://github.com/theislab/scanpy) (for single-cell clustering)
 
-**Usage examples** can be found in [notebooks](https://github.com/CSB5/CaDRReS-Sc/tree/master/notebooks).
+## Usage examples
+
+Please refer to our tutorial [notebooks](https://github.com/CSB5/CaDRReS-Sc/tree/master/notebooks). Below are snippets from the notebooks:
+
+**Model training** ([tutorial](https://github.com/CSB5/CaDRReS-Sc/blob/master/notebooks/model_training.ipynb))
+
+```python
+model_dict, output_dict = model.train_model_logistic_weight(
+    Y_train, X_train,                 # Y = drug response; X = kernel features
+    Y_test, X_test, 
+    sample_weights_logistic_x0_df,    # Sample weight w.r.t. maximum drug dosage
+    indication_weight_df,             # High weight for specific tissue types
+    10, 0.0, 100000, 0.01,            # Hyperparamters
+    model_spec_name=model_spec_name,  # Select objective function
+    save_interval=5000,
+    output_dir=output_dir)
+```
+
+**Predicting monotherapy response based on a pre-trained model** ([tutorial](https://github.com/CSB5/CaDRReS-Sc/blob/master/notebooks/prediction_pretrained_model.ipynb))
+
+```python
+cadrres_model = model.load_model(model_file)
+pred_df, P_df = model.predict_from_model(cadrres_model, X_test, model_spec_name)
+```
+
+```python
+pred_df.head() # Predicted drug response (log2 IC50)
+```
+
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>D1</th>
+      <th>D1001</th>
+      <th>D1003</th>
+      <th>D1004</th>
+      <th>...</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>906826</th>
+      <td>3.86</td>
+      <td>11.11</td>
+      <td>-5.71</td>
+      <td>-5.56</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>687983</th>
+      <td>7.00</td>
+      <td>11.52</td>
+      <td>-4.12</td>
+      <td>-4.48</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>910927</th>
+      <td>1.74</td>
+      <td>10.84</td>
+      <td>-7.32</td>
+      <td>-6.77</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>1240138</th>
+      <td>3.55</td>
+      <td>11.42</td>
+      <td>-4.79</td>
+      <td>-4.82</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>1240139</th>
+      <td>2.79</td>
+      <td>10.70</td>
+      <td>-7.89</td>
+      <td>-7.42</td>
+      <td>...</td>
+    </tr>
+  </tbody>
+</table>
+
+```python
+P_df.head() # A latent vector of each sample in the 10D pharmacogenomic space
+```
+
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>1</th>
+      <th>2</th>
+      <th>3</th>
+      <th>4</th>
+      <th>5</th>
+      <th>6</th>
+      <th>7</th>
+      <th>8</th>
+      <th>9</th>
+      <th>10</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>906826</th>
+      <td>0.38</td>
+      <td>-1.39</td>
+      <td>-1.26</td>
+      <td>-0.15</td>
+      <td>-0.37</td>
+      <td>-1.35</td>
+      <td>1.09</td>
+      <td>0.04</td>
+      <td>-0.78</td>
+      <td>0.37</td>
+    </tr>
+    <tr>
+      <th>687983</th>
+      <td>0.26</td>
+      <td>-0.68</td>
+      <td>0.47</td>
+      <td>1.31</td>
+      <td>0.61</td>
+      <td>0.93</td>
+      <td>-0.09</td>
+      <td>-0.77</td>
+      <td>-2.20</td>
+      <td>-0.42</td>
+    </tr>
+    <tr>
+      <th>910927</th>
+      <td>-0.52</td>
+      <td>0.47</td>
+      <td>0.12</td>
+      <td>-0.10</td>
+      <td>-1.56</td>
+      <td>-2.99</td>
+      <td>1.15</td>
+      <td>-0.06</td>
+      <td>-0.58</td>
+      <td>-1.21</td>
+    </tr>
+    <tr>
+      <th>1240138</th>
+      <td>0.72</td>
+      <td>0.51</td>
+      <td>-1.16</td>
+      <td>-0.34</td>
+      <td>1.56</td>
+      <td>-1.21</td>
+      <td>1.06</td>
+      <td>-0.59</td>
+      <td>0.08</td>
+      <td>-0.53</td>
+    </tr>
+    <tr>
+      <th>1240139</th>
+      <td>-0.08</td>
+      <td>-0.45</td>
+      <td>0.45</td>
+      <td>-0.19</td>
+      <td>-0.75</td>
+      <td>-2.93</td>
+      <td>0.50</td>
+      <td>0.67</td>
+      <td>-0.11</td>
+      <td>0.27</td>
+    </tr>
+  </tbody>
+</table>
+
+**Predicting response to drug combinations at specific dosages** ([tutorial](https://github.com/CSB5/CaDRReS-Sc/blob/master/notebooks/predicting_combinatorial_drugs_scrna-seq.ipynb))
+
+*Inputs:*
+
+`freq_df` Proportion of each cell cluster in each sample
+
+`cluster_gene_exp_df` Cluster-specific gene expression profiles
+
+`drug_df` Drug dosage information
+
+*Example outputs:*
+
+```python
+drug_combi_pred_df.head() # Predicted cell death percentage at specific dosage
+```
+
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th>patient</th>
+      <th>drug_id_A</th>
+      <th>drug_id_B</th>
+      <th>cluster</th>
+      <th>cell_death_A</th>
+      <th>cell_death_B</th>
+      <th>cell_death_combi</th>
+      <th>improve</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>HN120</td>
+      <td>D1007</td>
+      <td>D133</td>
+      <td>D1|D2|G1|G2</td>
+      <td>8.52</td>
+      <td>75.63</td>
+      <td>77.19</td>
+      <td>1.56</td>
+    </tr>
+    <tr>
+      <td>HN120</td>
+      <td>D1007</td>
+      <td>D201</td>
+      <td>D1|D2|G1|G2</td>
+      <td>8.52</td>
+      <td>60.39</td>
+      <td>63.04</td>
+      <td>2.65</td>
+    </tr>
+    <tr>
+      <td>HN120</td>
+      <td>D1007</td>
+      <td>D1010</td>
+      <td>D1|D2|G1|G2</td>
+      <td>8.52</td>
+      <td>15.31</td>
+      <td>22.39</td>
+      <td>7.08</td>
+    </tr>
+    <tr>
+      <td>HN120</td>
+      <td>D1007</td>
+      <td>D182</td>
+      <td>D1|D2|G1|G2</td>
+      <td>8.52</td>
+      <td>64.66</td>
+      <td>67.22</td>
+      <td>2.56</td>
+    </tr>
+    <tr>
+      <td>HN120</td>
+      <td>D1007</td>
+      <td>D301</td>
+      <td>D1|D2|G1|G2</td>
+      <td>8.52</td>
+      <td>63.39</td>
+      <td>66.39</td>
+      <td>3.00</td>
+    </tr>
+  </tbody>
+</table>
 
 # Citation
 
