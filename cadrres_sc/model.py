@@ -12,10 +12,8 @@ import os, pickle, time
 
 import tensorflow as tf
 from tensorflow.python.framework import ops
-
-# TODO:
-# 1) update to tensorflow v.2 and using standard model.save(h5)
-# 2) support original cadrres version with an improved bias estimation
+import tensorflow.python.util.deprecation as deprecation
+deprecation._PRINT_DEPRECATION_WARNINGS = False
 
 def load_model(model_fname):
 
@@ -690,4 +688,6 @@ def get_sample_weights_logistic_x0(drug_df, log2_max_conc_col_name, sample_list)
 
     return weights_logistic_x0_df
 
-
+# TODO:
+# 1) update to tensorflow v.2 and using standard model.save(h5)
+# 2) support original cadrres version with an improved bias estimation
