@@ -56,7 +56,7 @@ pred_df, P_df = model.predict_from_model(cadrres_model, X_test, model_spec_name)
 pred_df.head() # Predicted drug response (log2 IC50)
 ```
 
-<table border="1" class="dataframe">
+<table border="0">
   <thead>
     <tr style="text-align: right;">
       <th></th>
@@ -115,7 +115,7 @@ pred_df.head() # Predicted drug response (log2 IC50)
 P_df.head() # A latent vector of each sample in the 10D pharmacogenomic space
 ```
 
-<table border="1" class="dataframe">
+<table border="0" class="dataframe">
   <thead>
     <tr style="text-align: right;">
       <th></th>
@@ -216,13 +216,12 @@ P_df.head() # A latent vector of each sample in the 10D pharmacogenomic space
 drug_combi_pred_df.head() # Predicted cell death percentage at specific dosage
 ```
 
-<table border="1" class="dataframe">
+<table border="0" class="dataframe">
   <thead>
     <tr style="text-align: right;">
       <th>patient</th>
       <th>drug_id_A</th>
       <th>drug_id_B</th>
-      <th>cluster</th>
       <th>cell_death_A</th>
       <th>cell_death_B</th>
       <th>cell_death_combi</th>
@@ -234,7 +233,6 @@ drug_combi_pred_df.head() # Predicted cell death percentage at specific dosage
       <td>HN120</td>
       <td>D1007</td>
       <td>D133</td>
-      <td>D1|D2|G1|G2</td>
       <td>8.52</td>
       <td>75.63</td>
       <td>77.19</td>
@@ -244,7 +242,6 @@ drug_combi_pred_df.head() # Predicted cell death percentage at specific dosage
       <td>HN120</td>
       <td>D1007</td>
       <td>D201</td>
-      <td>D1|D2|G1|G2</td>
       <td>8.52</td>
       <td>60.39</td>
       <td>63.04</td>
@@ -254,7 +251,6 @@ drug_combi_pred_df.head() # Predicted cell death percentage at specific dosage
       <td>HN120</td>
       <td>D1007</td>
       <td>D1010</td>
-      <td>D1|D2|G1|G2</td>
       <td>8.52</td>
       <td>15.31</td>
       <td>22.39</td>
@@ -264,7 +260,6 @@ drug_combi_pred_df.head() # Predicted cell death percentage at specific dosage
       <td>HN120</td>
       <td>D1007</td>
       <td>D182</td>
-      <td>D1|D2|G1|G2</td>
       <td>8.52</td>
       <td>64.66</td>
       <td>67.22</td>
@@ -274,7 +269,6 @@ drug_combi_pred_df.head() # Predicted cell death percentage at specific dosage
       <td>HN120</td>
       <td>D1007</td>
       <td>D301</td>
-      <td>D1|D2|G1|G2</td>
       <td>8.52</td>
       <td>63.39</td>
       <td>66.39</td>
