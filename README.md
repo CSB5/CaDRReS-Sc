@@ -279,7 +279,7 @@ drug_combi_pred_df.head() # Predicted cell death percentage at specific dosage
 
 # Citation
 
-Suphavilai C, Chia S, Sharma A et al. Predicting heterogeneity in clone-specific therapeutic vulnerabilities using single-cell transcriptomic signatures. [bioRxiv](https://www.biorxiv.org/content/10.1101/2020.11.23.389676v1) 2020 Nov 
+Suphavilai C, Chia S, Sharma A et al. Predicting heterogeneity in clone-specific therapeutic vulnerabilities using single-cell transcriptomic signatures. [Genome Medicine](https://genomemedicine.biomedcentral.com/articles/10.1186/s13073-021-01000-y) 13, Article number: 189 (2021)
 
 Suphavilai C, Bertrand D, Nagarajan N. Predicting cancer drug response using a recommender system. [Bioinformatics](https://academic.oup.com/bioinformatics/article/34/22/3907/5026663) 2018 Nov 15;34(22):3907-14.
 
